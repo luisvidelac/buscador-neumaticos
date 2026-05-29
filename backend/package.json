@@ -1,0 +1,18 @@
+{
+  "name": "comparador-neumaticos-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.3",
+    "playwright": "^1.49.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
