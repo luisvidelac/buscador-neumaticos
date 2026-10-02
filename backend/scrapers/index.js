@@ -5,6 +5,7 @@ import { buscarPionono } from "./pionono.scraper.js";
 import { buscarChileNeumaticos } from "./chileneumaticos.scraper.js";
 import { buscarSDN } from "./sdn.scraper.js";
 import { buscarNeumafast } from "./neumafast.scraper.js";
+import { buscarReyDelNeumatico } from "./reydelneumatico.scraper.js";
 
 const scrapers = [
   { nombre: "AZedan", fn: buscarAZedan },
@@ -14,6 +15,7 @@ const scrapers = [
   { nombre: "ChileNeumaticos", fn: buscarChileNeumaticos },
   { nombre: "SDN", fn: buscarSDN, timeoutMs: 40000 },
   { nombre: "Neumafast", fn: buscarNeumafast },
+  { nombre: "ReyDelNeumatico", fn: buscarReyDelNeumatico },
 ];
 
 const TIMEOUT_POR_PROVEEDOR_MS = 25000;
