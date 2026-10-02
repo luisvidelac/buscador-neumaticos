@@ -13,6 +13,7 @@ const PROVEEDORES = [
   "Neumafast",
   "ReyDelNeumatico",
   "RedBarrera",
+  "Neumastore",
 ];
 
 const FABRICANTES = [
