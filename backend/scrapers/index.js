@@ -8,6 +8,10 @@ import { buscarNeumafast } from "./neumafast.scraper.js";
 import { buscarReyDelNeumatico } from "./reydelneumatico.scraper.js";
 import { buscarRedBarrera } from "./redbarrera.scraper.js";
 import { buscarNeumastore } from "./neumastore.scraper.js";
+import { buscarNeumax } from "./neumax.scraper.js";
+import { buscarVentaStore } from "./ventastore.scraper.js";
+import { buscarLeon } from "./leon.scraper.js";
+import { buscarTiresChile } from "./tireschile.scraper.js";
 
 const scrapers = [
   { nombre: "AZedan", fn: buscarAZedan },
@@ -20,6 +24,10 @@ const scrapers = [
   { nombre: "ReyDelNeumatico", fn: buscarReyDelNeumatico },
   { nombre: "RedBarrera", fn: buscarRedBarrera },
   { nombre: "Neumastore", fn: buscarNeumastore },
+  { nombre: "Neumax", fn: buscarNeumax },
+  { nombre: "VentaStore", fn: buscarVentaStore },
+  { nombre: "Leon", fn: buscarLeon, timeoutMs: 45000 },
+  { nombre: "TiresChile", fn: buscarTiresChile },
 ];
 
 const TIMEOUT_POR_PROVEEDOR_MS = 25000;
