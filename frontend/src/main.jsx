@@ -39,6 +39,7 @@ function App() {
   const [proveedor1, setProveedor1] = useState("");
   const [proveedor2, setProveedor2] = useState("");
   const [fabricanteFiltro, setFabricanteFiltro] = useState("");
+  const [progreso, setProgreso] = useState({ procesados: 0, total: 0 });
 
   const proveedoresConfigurados = new Set(
   resultados.flatMap((grupo) =>
@@ -72,47 +73,75 @@ function App() {
   };
 
   const buscarMedidasExcel = async () => {
-  if (medidas.length === 0) {
-    alert("Primero debes cargar un archivo Excel con medidas.");
-    return;
-  }
-
-  try {
-    const proveedoresSeleccionados = [proveedor1, proveedor2].filter(Boolean);
-
-    if (proveedor1 && proveedor2 && proveedor1 === proveedor2) {
-      alert("Proveedor 1 y Proveedor 2 no pueden ser iguales.");
+    if (medidas.length === 0) {
+      alert("Primero debes cargar un archivo Excel con medidas.");
       return;
     }
 
-    setCargando(true);
-    setResultados([]);
+    try {
+      const proveedoresSeleccionados = [proveedor1, proveedor2].filter(Boolean);
 
-    const response = await fetch("http://localhost:3001/api/neumaticos/lote", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        medidas,
-        proveedores: proveedoresSeleccionados,
-        fabricante: fabricanteFiltro,
-      }),
-    });
+      if (proveedor1 && proveedor2 && proveedor1 === proveedor2) {
+        alert("Proveedor 1 y Proveedor 2 no pueden ser iguales.");
+        return;
+      }
 
-    const data = await response.json();
+      setCargando(true);
+      setResultados([]);
+      setProgreso({ procesados: 0, total: medidas.length });
 
-    if (!response.ok) {
-      throw new Error(data.detalle || data.error || "Error al buscar lote");
+      const response = await fetch("http://localhost:3001/api/neumaticos/lote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          medidas,
+          proveedores: proveedoresSeleccionados,
+          fabricante: fabricanteFiltro,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detalle || data.error || "Error al iniciar la búsqueda");
+      }
+
+      await esperarJob(data.jobId);
+    } catch (error) {
+      alert(error.message);
+      setCargando(false);
     }
+  };
 
-    setResultados(data.resultados || []);
-  } catch (error) {
-    alert(error.message);
-  } finally {
-    setCargando(false);
-  }
-};
+  const esperarJob = (jobId) => {
+    return new Promise((resolve) => {
+      const intervalo = setInterval(async () => {
+        try {
+          const response = await fetch(`http://localhost:3001/api/neumaticos/lote/${jobId}`);
+          const estado = await response.json();
+
+          setProgreso({ procesados: estado.procesados, total: estado.total });
+          setResultados((estado.resultados || []).filter(Boolean));
+
+          if (estado.estado === "completado" || estado.estado === "error") {
+            clearInterval(intervalo);
+            setCargando(false);
+            if (estado.estado === "error") {
+              alert(estado.error || "Error durante la búsqueda");
+            }
+            resolve();
+          }
+        } catch (error) {
+          clearInterval(intervalo);
+          setCargando(false);
+          alert("Se perdió la conexión con el servidor durante la búsqueda.");
+          resolve();
+        }
+      }, 2000);
+    });
+  };
 
   const exportarExcel = () => {
   if (resultados.length === 0) {
@@ -288,6 +317,11 @@ filas.forEach((fila) => {
           {cargando && (
   <div className="processing-box">
     Analizando proveedores, comparando precios y buscando mejores ofertas...
+    {progreso.total > 0 && (
+      <div style={{ marginTop: "8px" }}>
+        {progreso.procesados} de {progreso.total} medidas procesadas
+      </div>
+    )}
   </div>
 )}
 
