@@ -16,6 +16,17 @@ const scrapers = [
   { nombre: "Neumafast", fn: buscarNeumafast },
 ];
 
+const TIMEOUT_POR_PROVEEDOR_MS = 25000;
+
+function conTimeout(promesa, ms, etiqueta) {
+  return Promise.race([
+    promesa,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout de ${ms}ms en ${etiqueta}`)), ms)
+    ),
+  ]);
+}
+
 export async function buscarEnTodosLosProveedores(
   browser,
   itemBusqueda,
@@ -36,7 +47,11 @@ export async function buscarEnTodosLosProveedores(
   try {
     console.log(`Ejecutando: ${scraper.nombre}`);
 
-    const data = await scraper.fn(page, itemBusqueda);
+    const data = await conTimeout(
+      scraper.fn(page, itemBusqueda),
+      TIMEOUT_POR_PROVEEDOR_MS,
+      scraper.nombre
+    );
 
     console.log(`${scraper.nombre} resultados:`, data.length);
 
