@@ -12,7 +12,7 @@ const scrapers = [
   { nombre: "NeumaticosK", fn: buscarNeumaticosK },
   { nombre: "Pionono", fn: buscarPionono },
   { nombre: "ChileNeumaticos", fn: buscarChileNeumaticos },
-  { nombre: "SDN", fn: buscarSDN },
+  { nombre: "SDN", fn: buscarSDN, timeoutMs: 40000 },
   { nombre: "Neumafast", fn: buscarNeumafast },
 ];
 
@@ -49,7 +49,7 @@ export async function buscarEnTodosLosProveedores(
 
     const data = await conTimeout(
       scraper.fn(page, itemBusqueda),
-      TIMEOUT_POR_PROVEEDOR_MS,
+      scraper.timeoutMs || TIMEOUT_POR_PROVEEDOR_MS,
       scraper.nombre
     );
 

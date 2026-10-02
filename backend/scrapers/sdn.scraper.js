@@ -45,37 +45,17 @@ export async function buscarSDN(page, itemBusqueda) {
 
     await page.waitForTimeout(4000);
 
-    console.log("SDN paso 2: clic en Autos y camionetas");
+    console.log("SDN paso 2: seleccionando filtros", datosMedida);
 
-    const botonAutos = page.locator(
-      'text=Auto - camioneta, text=Autos y camionetas, text=Auto, a[href*="autos-y-camionetas"]'
-    );
+    const selectAncho = page.locator("#filter-ancho");
+    const selectPerfil = page.locator("#filter-perfil");
+    const selectAro = page.locator("#filter-aro");
 
-    if ((await botonAutos.count()) > 0) {
-      await Promise.all([
-        page.waitForLoadState("domcontentloaded").catch(() => {}),
-        botonAutos.first().click(),
-      ]);
-    } else {
-      console.log("SDN: no encontró botón Autos y camionetas, entra directo a categoría");
-
-      await page.goto(
-        "https://www.sdn.cl/neumaticos/autos-y-camionetas-neumaticos.html",
-        {
-          waitUntil: "domcontentloaded",
-          timeout: 60000,
-        }
-      );
-    }
-
-    await page.waitForTimeout(5000);
-
-    console.log("SDN paso 3: seleccionando filtros", datosMedida);
-
-    const selects = page.locator("select");
-    const totalSelects = await selects.count();
-
-    if (totalSelects < 3) {
+    if (
+      (await selectAncho.count()) === 0 ||
+      (await selectPerfil.count()) === 0 ||
+      (await selectAro.count()) === 0
+    ) {
       console.log("SDN: no encontró los 3 selectores");
       await page.screenshot({
         path: "sdn-error-selectores.png",
@@ -84,25 +64,23 @@ export async function buscarSDN(page, itemBusqueda) {
       return [];
     }
 
-    await selects.nth(0).selectOption({ label: datosMedida.ancho });
+    await selectAncho.selectOption({ label: datosMedida.ancho });
+    await page.waitForTimeout(1500);
+
+    await selectPerfil.selectOption({ label: datosMedida.perfil });
+    await page.waitForTimeout(1500);
+
+    await selectAro.selectOption({ label: datosMedida.aro });
     await page.waitForTimeout(800);
 
-    await selects.nth(1).selectOption({ label: datosMedida.perfil });
-    await page.waitForTimeout(800);
+    console.log("SDN paso 3: clic en Buscar");
 
-    await selects.nth(2).selectOption({ label: datosMedida.aro });
-    await page.waitForTimeout(800);
+    const botonBuscar = page.locator("#tire-filter-btn");
 
-    console.log("SDN paso 4: clic en Filtrar");
-
-    const botonFiltrar = page.locator(
-      'button:has-text("Filtrar"), input[value="Filtrar"], input[type="submit"], a:has-text("Filtrar")'
-    );
-
-    if ((await botonFiltrar.count()) === 0) {
-      console.log("SDN: no encontró botón Filtrar");
+    if ((await botonBuscar.count()) === 0) {
+      console.log("SDN: no encontró botón Buscar");
       await page.screenshot({
-        path: "sdn-error-boton-filtrar.png",
+        path: "sdn-error-boton-buscar.png",
         fullPage: true,
       });
       return [];
@@ -110,12 +88,12 @@ export async function buscarSDN(page, itemBusqueda) {
 
     await Promise.all([
       page.waitForLoadState("domcontentloaded").catch(() => {}),
-      botonFiltrar.first().click(),
+      botonBuscar.click(),
     ]);
 
     await page.waitForTimeout(9000);
 
-    console.log("SDN paso 5: resultados cargados", page.url());
+    console.log("SDN paso 4: resultados cargados", page.url());
 
     await page.screenshot({
       path: "sdn-resultados-debug.png",
@@ -124,65 +102,60 @@ export async function buscarSDN(page, itemBusqueda) {
 
     const productos = await page.evaluate(
       ({ proveedor, medida, fabricante }) => {
-        const normalizar = (txt = "") =>
+        const normalizarTexto = (txt = "") =>
+          String(txt).replace(/\s+/g, " ").trim();
+
+        const normalizarComparacion = (txt = "") =>
           String(txt)
             .toUpperCase()
             .replace(/\s+/g, "")
             .replace(/\//g, "")
             .replace(/-/g, "");
 
-        const medidaNormalizada = normalizar(medida);
-        const fabricanteNormalizado = normalizar(fabricante);
+        const medidaNormalizada = normalizarComparacion(medida);
+        const fabricanteNormalizado = normalizarComparacion(fabricante);
 
-        const lineas = document.body.innerText
-          .split("\n")
-          .map((x) => x.trim())
-          .filter(Boolean);
-
+        const items = Array.from(document.querySelectorAll(".product-item-info"));
         const resultados = [];
 
-        for (let i = 0; i < lineas.length; i++) {
-          const linea = lineas[i];
-          const lineaNormalizada = normalizar(linea);
+        for (const item of items) {
+          const titulo = normalizarTexto(
+            item.querySelector(".product-item-link")?.textContent || ""
+          );
+          const tituloComparable = normalizarComparacion(titulo);
 
-          if (!lineaNormalizada.includes(medidaNormalizada)) continue;
+          if (!tituloComparable.includes(medidaNormalizada)) continue;
 
           if (
             fabricanteNormalizado &&
-            !lineaNormalizada.includes(fabricanteNormalizado)
+            !tituloComparable.includes(fabricanteNormalizado)
           ) {
             continue;
           }
 
-          const ventana = lineas.slice(i, i + 15).join(" ");
-          const precios = ventana.match(/\$[\d.]+/g) || [];
+          const priceBox = item.querySelector(".price-box");
+          if (!priceBox) continue;
 
-          if (precios.length === 0) continue;
+          const finalEl = priceBox.querySelector('[data-price-type="finalPrice"]');
+          const oldEl = priceBox.querySelector('[data-price-type="oldPrice"]');
 
-          const preciosOrdenados = precios
-            .map((p) => ({
-              texto: p,
-              valor: Number(p.replace(/[^\d]/g, "")),
-            }))
-            .filter((p) => p.valor > 0)
-            .sort((a, b) => a.valor - b.valor);
+          const precioOferta = finalEl
+            ? Math.round(Number(finalEl.getAttribute("data-price-amount")) || 0)
+            : 0;
+          const precioNormal = oldEl
+            ? Math.round(Number(oldEl.getAttribute("data-price-amount")) || 0)
+            : 0;
 
-          const precioOfertaTexto = preciosOrdenados[0]?.texto || "";
-          const precioNormalTexto = preciosOrdenados[1]?.texto || "";
-
-          const precioOferta = preciosOrdenados[0]?.valor || 0;
-          const precioNormal = preciosOrdenados[1]?.valor || 0;
-
-          const partes = linea.split(" ");
+          if (precioOferta <= 0 && precioNormal <= 0) continue;
 
           resultados.push({
             proveedor,
             medida,
-            marca: partes.at(-1) || "",
-            modelo: partes.slice(0, -1).join(" "),
-            producto: linea,
-            precioOfertaTexto,
-            precioNormalTexto,
+            marca: "",
+            modelo: titulo,
+            producto: titulo,
+            precioOfertaTexto: finalEl?.textContent.trim() || "",
+            precioNormalTexto: oldEl?.textContent.trim() || "",
             precioOferta,
             precioNormal,
             precio: precioOferta || precioNormal,
