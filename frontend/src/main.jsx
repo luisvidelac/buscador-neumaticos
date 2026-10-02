@@ -11,7 +11,6 @@ const PROVEEDORES = [
   "SDN",
   "Pionono",
   "Neumafast",
-  "Llantas del Pacífico",
 ];
 
 const FABRICANTES = [

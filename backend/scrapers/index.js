@@ -3,6 +3,8 @@ import { buscarNeumacenter } from "./neumacenter.scraper.js";
 import { buscarNeumaticosK } from "./neumaticosk.scraper.js";
 import { buscarPionono } from "./pionono.scraper.js";
 import { buscarChileNeumaticos } from "./chileneumaticos.scraper.js";
+import { buscarSDN } from "./sdn.scraper.js";
+import { buscarNeumafast } from "./neumafast.scraper.js";
 
 const scrapers = [
   { nombre: "AZedan", fn: buscarAZedan },
@@ -10,6 +12,8 @@ const scrapers = [
   { nombre: "NeumaticosK", fn: buscarNeumaticosK },
   { nombre: "Pionono", fn: buscarPionono },
   { nombre: "ChileNeumaticos", fn: buscarChileNeumaticos },
+  { nombre: "SDN", fn: buscarSDN },
+  { nombre: "Neumafast", fn: buscarNeumafast },
 ];
 
 export async function buscarEnTodosLosProveedores(
