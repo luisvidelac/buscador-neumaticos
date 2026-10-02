@@ -242,6 +242,23 @@ filas.forEach((fila) => {
   XLSX.writeFile(libro, "comparador-neumaticos.xlsx");
 };
 
+  const descargarJSON = () => {
+    if (resultados.length === 0) {
+      alert("No hay resultados para exportar.");
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify({ resultados }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "resultados-scraper.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="app">
       <main className="dashboard-box">
@@ -317,6 +334,10 @@ filas.forEach((fila) => {
 
             <button className="btn-secondary" onClick={exportarExcel}>
               Exportar Excel
+            </button>
+
+            <button className="btn-secondary" onClick={descargarJSON}>
+              Descargar JSON
             </button>
           </div>
 
