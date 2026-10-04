@@ -27,9 +27,13 @@ if (providersError) {
   process.exit(1);
 }
 
-const productByMedidaNormalizada = new Map(
-  products.filter((p) => p.medida_normalizada).map((p) => [p.medida_normalizada, p])
-);
+const productsByMedidaNormalizada = new Map();
+for (const p of products) {
+  if (!p.medida_normalizada) continue;
+  const lista = productsByMedidaNormalizada.get(p.medida_normalizada) ?? [];
+  lista.push(p);
+  productsByMedidaNormalizada.set(p.medida_normalizada, lista);
+}
 const providerByNombreNormalizado = new Map(providers.map((p) => [p.nombre_normalizado, p]));
 
 const medidasUnicas = new Map();
@@ -95,8 +99,8 @@ const tareas = Array.from(medidasUnicas.entries()).map(([medidaNormalizada, medi
         proveedoresCreados += 1;
       }
 
-      let product = productByMedidaNormalizada.get(medidaNormalizada);
-      if (!product) {
+      let productos = productsByMedidaNormalizada.get(medidaNormalizada) ?? [];
+      if (productos.length === 0) {
         const { data, error } = await supabase
           .from("products")
           .upsert(
@@ -122,37 +126,41 @@ const tareas = Array.from(medidasUnicas.entries()).map(([medidaNormalizada, medi
           errores += 1;
           continue;
         }
-        product = data;
-        productByMedidaNormalizada.set(medidaNormalizada, product);
+        productos = [data];
+        productsByMedidaNormalizada.set(medidaNormalizada, productos);
         productosCreados += 1;
       }
 
-      const { error: insertError } = await supabase.from("competitor_prices").insert({
-        producto_id: product.id,
-        proveedor_id: provider.id,
-        medida_encontrada: oferta.medida || medidaTexto,
-        medida_normalizada: medidaNormalizada,
-        marca_encontrada: oferta.marca || null,
-        modelo_encontrado: oferta.modelo || null,
-        precio_normal: oferta.precioNormal || null,
-        precio_oferta: oferta.precioOferta || null,
-        precio_utilizado: oferta.precio,
-        disponibilidad: "No confirmado",
-        url_producto: oferta.url || null,
-        fuente: oferta.proveedorNombre,
-        nivel_coincidencia: "alta",
-        porcentaje_coincidencia: 75,
-        revision_manual: false,
-        es_demo: false,
-      });
+      // Si varios productos comparten la misma medida, la oferta se adjunta a
+      // todos -- no solo al primero que aparecio en la consulta a Supabase.
+      for (const product of productos) {
+        const { error: insertError } = await supabase.from("competitor_prices").insert({
+          producto_id: product.id,
+          proveedor_id: provider.id,
+          medida_encontrada: oferta.medida || medidaTexto,
+          medida_normalizada: medidaNormalizada,
+          marca_encontrada: oferta.marca || null,
+          modelo_encontrado: oferta.modelo || null,
+          precio_normal: oferta.precioNormal || null,
+          precio_oferta: oferta.precioOferta || null,
+          precio_utilizado: oferta.precio,
+          disponibilidad: "No confirmado",
+          url_producto: oferta.url || null,
+          fuente: oferta.proveedorNombre,
+          nivel_coincidencia: "alta",
+          porcentaje_coincidencia: 75,
+          revision_manual: false,
+          es_demo: false,
+        });
 
-      if (insertError) {
-        console.error("Error insertando precio", insertError.message);
-        errores += 1;
-        continue;
+        if (insertError) {
+          console.error("Error insertando precio", insertError.message);
+          errores += 1;
+          continue;
+        }
+
+        insertados += 1;
       }
-
-      insertados += 1;
     }
   })
 );
