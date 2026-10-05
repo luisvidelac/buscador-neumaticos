@@ -3,6 +3,7 @@ import { chromium } from "playwright";
 import pLimit from "p-limit";
 import { createClient } from "@supabase/supabase-js";
 import { buscarEnTodosLosProveedores } from "../backend/scrapers/index.js";
+import { mejorOfertaPorProveedorYMarca } from "./ofertas.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -63,22 +64,8 @@ const tareas = Array.from(medidasUnicas.entries()).map(([medidaNormalizada, medi
       return;
     }
 
-    const mejorPorProveedor = new Map();
-    for (const oferta of resultados) {
-      const proveedorNombre = oferta.proveedor;
-      if (!proveedorNombre) continue;
-
-      const precio = Number(oferta.precio) || 0;
-      if (precio <= 0) continue;
-
-      const key = proveedorNombre.trim().toLowerCase();
-      const actual = mejorPorProveedor.get(key);
-      if (!actual || precio < actual.precio) {
-        mejorPorProveedor.set(key, { ...oferta, precio, proveedorNombre });
-      }
-    }
-
-    for (const [proveedorKey, oferta] of mejorPorProveedor) {
+    for (const oferta of mejorOfertaPorProveedorYMarca(resultados)) {
+      const proveedorKey = oferta.proveedorKey;
       let provider = providerByNombreNormalizado.get(proveedorKey);
       if (!provider) {
         const { data, error } = await supabase
@@ -139,8 +126,9 @@ const tareas = Array.from(medidasUnicas.entries()).map(([medidaNormalizada, medi
           proveedor_id: provider.id,
           medida_encontrada: oferta.medida || medidaTexto,
           medida_normalizada: medidaNormalizada,
-          marca_encontrada: oferta.marca || null,
+          marca_encontrada: oferta.marcaDetectada || oferta.marca || null,
           modelo_encontrado: oferta.modelo || null,
+          descripcion_encontrada: oferta.producto || null,
           precio_normal: oferta.precioNormal || null,
           precio_oferta: oferta.precioOferta || null,
           precio_utilizado: oferta.precio,
