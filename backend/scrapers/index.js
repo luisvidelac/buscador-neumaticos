@@ -1,4 +1,3 @@
-import { buscarAZedan } from "./azedan.scraper.js";
 import { buscarNeumacenter } from "./neumacenter.scraper.js";
 import { buscarNeumaticosK } from "./neumaticosk.scraper.js";
 import { buscarPionono } from "./pionono.scraper.js";
@@ -15,8 +14,10 @@ import { buscarTiresChile } from "./tireschile.scraper.js";
 import { buscarZSMotor } from "./zsmotor.scraper.js";
 import { buscarCambiaTuNeumatico } from "./cambiatuneumatico.scraper.js";
 
+// AZedan no es competidor: su precio vive en products.precio_azedan, nunca
+// en competitor_prices. Si se incluye aca, se inserta como si fuera un
+// proveedor mas, duplicando/contradiciendo el precio propio en el comparador.
 const scrapers = [
-  { nombre: "AZedan", fn: buscarAZedan },
   { nombre: "Neumacenter", fn: buscarNeumacenter },
   { nombre: "NeumaticosK", fn: buscarNeumaticosK },
   { nombre: "Pionono", fn: buscarPionono },

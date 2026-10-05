@@ -4,7 +4,6 @@ import * as XLSX from "xlsx";
 import "./styles.css";
 
 const PROVEEDORES = [
-  "AZedan",
   "Neumacenter",
   "NeumaticosK",
   "ChileNeumaticos",
