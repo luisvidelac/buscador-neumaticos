@@ -2,7 +2,9 @@ name: Scrape diario de precios
 
 on:
   schedule:
-    - cron: '0 13 * * *' # 10:00 America/Santiago (UTC-3)
+    # Cada hora; el paso "Revisar horario" decide si toca correr segun el
+    # horario configurado en Administracion (settings.scrape_schedule).
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       provider:
@@ -21,6 +23,10 @@ on:
         description: 'JSON con nombres de proveedores a comparar (combos del Comparador). Vacio = todos.'
         required: false
         type: string
+      summary_only:
+        description: '"true" = solo enviar el resumen por correo, sin escanear.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -32,18 +38,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sin npm install: si no toca correr, el job termina en segundos.
+      - name: Revisar horario
+        id: check
+        run: node scripts/should-run.mjs >> "$GITHUB_OUTPUT"
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
       - uses: actions/setup-node@v4
+        if: ${{ steps.check.outputs.run == 'true' }}
         with:
           node-version: 22
 
       - name: Instalar dependencias
+        if: ${{ steps.check.outputs.run == 'true' }}
         run: npm install
 
       - name: Instalar Chromium de Playwright
+        if: ${{ steps.check.outputs.run == 'true' && inputs.summary_only != 'true' }}
         run: npx playwright install --with-deps chromium
 
       - name: Comparacion dirigida (un proveedor, items especificos)
-        if: ${{ inputs.provider != '' }}
+        if: ${{ steps.check.outputs.run == 'true' && inputs.provider != '' }}
         run: node scripts/targeted-scrape.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -52,10 +70,21 @@ jobs:
           TARGETED_ITEMS: ${{ inputs.items }}
 
       - name: Escanear todos los proveedores e importar precios a Supabase
-        if: ${{ inputs.provider == '' }}
+        if: ${{ steps.check.outputs.run == 'true' && inputs.provider == '' && inputs.summary_only != 'true' }}
         run: node scripts/scrape-and-import.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PRODUCT_IDS: ${{ inputs.product_ids }}
           PROVIDERS: ${{ inputs.providers }}
+
+      # Solo tras una corrida completa (programada o "Actualizar precios ahora")
+      # o con summary_only; no tras busquedas del Excel, por medida o dirigidas.
+      - name: Enviar resumen por correo
+        if: ${{ !cancelled() && steps.check.outputs.run == 'true' && inputs.provider == '' && inputs.product_ids == '' }}
+        run: node scripts/send-summary.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
