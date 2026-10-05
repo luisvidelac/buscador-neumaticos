@@ -13,6 +13,10 @@ on:
         description: 'JSON [{"medida":"205/55 R16","marca":"Firestone","modelo":"Destination"}] (busqueda dirigida). Vacio = catalogo completo.'
         required: false
         type: string
+      product_ids:
+        description: 'JSON con ids de productos a escanear (lo recien subido por Excel). Vacio = todos los productos activos.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -49,3 +53,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PRODUCT_IDS: ${{ inputs.product_ids }}
