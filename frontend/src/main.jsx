@@ -18,6 +18,8 @@ const PROVEEDORES = [
   "VentaStore",
   "Leon",
   "TiresChile",
+  "ZSMotor",
+  "CambiaTuNeumatico",
 ];
 
 const FABRICANTES = [

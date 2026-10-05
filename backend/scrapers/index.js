@@ -12,6 +12,8 @@ import { buscarNeumax } from "./neumax.scraper.js";
 import { buscarVentaStore } from "./ventastore.scraper.js";
 import { buscarLeon } from "./leon.scraper.js";
 import { buscarTiresChile } from "./tireschile.scraper.js";
+import { buscarZSMotor } from "./zsmotor.scraper.js";
+import { buscarCambiaTuNeumatico } from "./cambiatuneumatico.scraper.js";
 
 const scrapers = [
   { nombre: "AZedan", fn: buscarAZedan },
@@ -28,6 +30,8 @@ const scrapers = [
   { nombre: "VentaStore", fn: buscarVentaStore },
   { nombre: "Leon", fn: buscarLeon, timeoutMs: 45000 },
   { nombre: "TiresChile", fn: buscarTiresChile },
+  { nombre: "ZSMotor", fn: buscarZSMotor },
+  { nombre: "CambiaTuNeumatico", fn: buscarCambiaTuNeumatico },
 ];
 
 const TIMEOUT_POR_PROVEEDOR_MS = 25000;
