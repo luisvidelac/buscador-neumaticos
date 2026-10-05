@@ -111,7 +111,9 @@ async function guardarPreciosAzedanPorMarca(product) {
     for (const o of resultados) {
       const precio = Number(o.precio) || 0;
       if (precio <= 0) continue;
-      const marca = detectarMarca(o) ?? "OTRA";
+      // En azedan.cl la marca siempre va al final del titulo ("... H/T KUSTONE").
+      const ultimaPalabra = String(o.producto || "").trim().split(/\s+/).pop()?.toUpperCase();
+      const marca = detectarMarca(o) ?? (ultimaPalabra && /^[A-Z]{3,}$/.test(ultimaPalabra) ? ultimaPalabra : "OTRA");
       const actual = porMarca.get(marca);
       if (!actual || precio < actual.precio) porMarca.set(marca, { ...o, precio, marca });
     }
@@ -213,7 +215,9 @@ const tareas = Array.from(productsByMedida.entries()).map(([medidaNormalizada, p
           proveedor_id: provider.id,
           medida_encontrada: oferta.medida || product.medida,
           medida_normalizada: medidaNormalizada,
-          marca_encontrada: oferta.marcaDetectada || oferta.marca || null,
+          // Si no se reconoce, la marca que trae el scraper sirve salvo que sea
+          // basura tipo indice de carga ("91V").
+          marca_encontrada: oferta.marcaDetectada || (oferta.marca && !/^\d/.test(oferta.marca.trim()) ? oferta.marca : null),
           modelo_encontrado: oferta.modelo || null,
           descripcion_encontrada: oferta.producto || null,
           precio_normal: oferta.precioNormal || null,
