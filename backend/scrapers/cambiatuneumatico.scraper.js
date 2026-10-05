@@ -121,6 +121,7 @@ export async function buscarCambiaTuNeumatico(page, itemBusqueda) {
           let etiquetaActual = "";
           let precioOfertaTexto = "";
           let precioNormalTexto = "";
+          let precioEfectivoTexto = "";
 
           for (const hijo of Array.from(precioEl.children)) {
             if (hijo.classList.contains("small")) {
@@ -132,6 +133,8 @@ export async function buscarCambiaTuNeumatico(page, itemBusqueda) {
               precioOfertaTexto = normalizarTexto(hijo.textContent);
             } else if (etiquetaActual === "Precio Normal") {
               precioNormalTexto = normalizarTexto(hijo.textContent);
+            } else if (/transferencia|efectivo/i.test(etiquetaActual)) {
+              precioEfectivoTexto = normalizarTexto(hijo.textContent);
             }
 
             etiquetaActual = "";
@@ -161,6 +164,7 @@ export async function buscarCambiaTuNeumatico(page, itemBusqueda) {
             precioNormalTexto,
             precioOferta,
             precioNormal,
+            precioEfectivo: parsearPrecio(precioEfectivoTexto) || null,
             precio: precioOferta || precioNormal,
             url,
           });

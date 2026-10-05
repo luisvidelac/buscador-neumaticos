@@ -162,6 +162,7 @@ for (const item of items) {
       modelo_encontrado: mejor.modelo || null,
       precio_normal: mejor.precioNormal || null,
       precio_oferta: mejor.precioOferta || null,
+      precio_efectivo: mejor.precioEfectivo || null,
       precio_utilizado: Number(mejor.precio),
       disponibilidad: "No confirmado",
       url_producto: mejor.url || null,

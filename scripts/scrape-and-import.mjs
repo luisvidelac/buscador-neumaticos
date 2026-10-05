@@ -180,6 +180,7 @@ const tareas = Array.from(productsByMedida.entries()).map(([medidaNormalizada, p
           descripcion_encontrada: oferta.producto || null,
           precio_normal: oferta.precioNormal || null,
           precio_oferta: oferta.precioOferta || null,
+          precio_efectivo: oferta.precioEfectivo || null,
           precio_utilizado: oferta.precio,
           disponibilidad: "No confirmado",
           url_producto: oferta.url || null,
