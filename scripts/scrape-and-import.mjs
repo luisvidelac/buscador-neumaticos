@@ -43,8 +43,10 @@ if (process.env.PROVIDERS) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-let productsQuery = supabase.from("products").select("*").eq("activo", true);
-if (productIds) productsQuery = productsQuery.in("id", productIds);
+// Con PRODUCT_IDS se escanean esos aunque esten inactivos: la busqueda por
+// medida usa un producto oculto (activo=false) que no entra al cron diario.
+let productsQuery = supabase.from("products").select("*");
+productsQuery = productIds ? productsQuery.in("id", productIds) : productsQuery.eq("activo", true);
 const { data: products, error: productsError } = await productsQuery;
 if (productsError) {
   console.error("Error cargando productos:", productsError.message);
@@ -99,7 +101,43 @@ async function obtenerProveedor(oferta) {
   return data;
 }
 
+// Producto sin marca (busqueda por medida): un precio AZedan por cada marca que
+// tenga azedan.cl en esa medida, el mas barato de cada una.
+async function guardarPreciosAzedanPorMarca(product) {
+  const page = await browser.newPage();
+  try {
+    const resultados = await buscarAZedan(page, { medida: product.medida, fabricante: "" });
+    const porMarca = new Map();
+    for (const o of resultados) {
+      const precio = Number(o.precio) || 0;
+      if (precio <= 0) continue;
+      const marca = detectarMarca(o) ?? "OTRA";
+      const actual = porMarca.get(marca);
+      if (!actual || precio < actual.precio) porMarca.set(marca, { ...o, precio, marca });
+    }
+    for (const o of porMarca.values()) {
+      const { error } = await supabase.from("azedan_prices").insert({
+        producto_id: product.id,
+        precio_normal: Number(o.precioNormal) || null,
+        precio_oferta: o.precio,
+        url: o.url || null,
+        marca: o.marca,
+        descripcion: o.producto || null,
+      });
+      if (error) throw error;
+      preciosAzedan += 1;
+    }
+    console.log(`  AZedan: ${porMarca.size} marca(s) en azedan.cl para ${product.medida}`);
+  } catch (error) {
+    console.error(`  Error precios AZedan ${product.medida}:`, error.message);
+    errores += 1;
+  } finally {
+    await page.close();
+  }
+}
+
 async function actualizarPrecioAzedan(product, marca) {
+  if (!marca) return guardarPreciosAzedanPorMarca(product);
   const page = await browser.newPage();
   try {
     const resultados = await buscarAZedan(page, { medida: product.medida, fabricante: marca ?? "" });
