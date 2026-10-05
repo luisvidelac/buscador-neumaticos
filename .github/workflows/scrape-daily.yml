@@ -17,6 +17,10 @@ on:
         description: 'JSON con ids de productos a escanear (lo recien subido por Excel). Vacio = todos los productos activos.'
         required: false
         type: string
+      providers:
+        description: 'JSON con nombres de proveedores a comparar (combos del Comparador). Vacio = todos.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -54,3 +58,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PRODUCT_IDS: ${{ inputs.product_ids }}
+          PROVIDERS: ${{ inputs.providers }}

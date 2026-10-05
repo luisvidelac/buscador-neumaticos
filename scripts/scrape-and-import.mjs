@@ -28,6 +28,19 @@ if (process.env.PRODUCT_IDS) {
   }
 }
 
+// PROVIDERS (JSON) = comparar solo contra esos proveedores (combos del
+// Comparador); vacio = todos.
+let proveedoresElegidos = [];
+if (process.env.PROVIDERS) {
+  try {
+    proveedoresElegidos = JSON.parse(process.env.PROVIDERS);
+    if (!Array.isArray(proveedoresElegidos)) throw new Error("debe ser un array");
+  } catch (e) {
+    console.error("PROVIDERS invalido:", e.message);
+    process.exit(1);
+  }
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 let productsQuery = supabase.from("products").select("*").eq("activo", true);
@@ -53,7 +66,11 @@ for (const p of products) {
   productsByMedida.set(p.medida_normalizada, lista);
 }
 
-console.log(`Escaneando ${products.length} producto(s) en ${productsByMedida.size} medida(s)...`);
+console.log(
+  `Escaneando ${products.length} producto(s) en ${productsByMedida.size} medida(s) contra ${
+    proveedoresElegidos.length ? proveedoresElegidos.join(", ") : "todos los proveedores"
+  }...`
+);
 
 const browser = await chromium.launch({ headless: true });
 const limite = pLimit(CONCURRENCIA);
@@ -130,7 +147,11 @@ const tareas = Array.from(productsByMedida.entries()).map(([medidaNormalizada, p
   limite(async () => {
     let resultados;
     try {
-      resultados = await buscarEnTodosLosProveedores(browser, { medida: productosMedida[0].medida, fabricante: "" }, {});
+      resultados = await buscarEnTodosLosProveedores(
+        browser,
+        { medida: productosMedida[0].medida, fabricante: "" },
+        { proveedores: proveedoresElegidos }
+      );
     } catch (error) {
       console.error(`Error escaneando ${medidaNormalizada}:`, error.message);
       errores += 1;
