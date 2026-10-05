@@ -132,6 +132,9 @@ export async function buscarTiresChile(page, itemBusqueda) {
             precioOferta,
             precioNormal,
             precio: precioOferta || precioNormal,
+            // TiresChile publica un solo precio y es "solo pago con
+            // transferencia o deposito en efectivo" (nota en ficha y listado).
+            precioEfectivo: precioOferta || precioNormal,
             url,
           });
         }
