@@ -3,7 +3,16 @@ name: Scrape diario de precios
 on:
   schedule:
     - cron: '0 13 * * *' # 10:00 America/Santiago (UTC-3)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Proveedor unico a escanear (busqueda dirigida). Vacio = catalogo completo contra todos los proveedores.'
+        required: false
+        type: string
+      items:
+        description: 'JSON [{"medida":"205/55 R16","marca":"Firestone","modelo":"Destination"}] (busqueda dirigida). Vacio = catalogo completo.'
+        required: false
+        type: string
 
 jobs:
   scrape:
@@ -22,7 +31,17 @@ jobs:
       - name: Instalar Chromium de Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Escanear proveedores e importar precios a Supabase
+      - name: Comparacion dirigida (un proveedor, items especificos)
+        if: ${{ inputs.provider != '' }}
+        run: node scripts/targeted-scrape.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TARGETED_PROVIDER: ${{ inputs.provider }}
+          TARGETED_ITEMS: ${{ inputs.items }}
+
+      - name: Escanear todos los proveedores e importar precios a Supabase
+        if: ${{ inputs.provider == '' }}
         run: node scripts/scrape-and-import.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
