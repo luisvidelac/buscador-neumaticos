@@ -19,10 +19,14 @@ const JOBS_DIR = path.join(__dirname, "jobs");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+// Solo el frontend local; con cors() abierto cualquier sitio que el usuario
+// visite podria disparar trabajos de Playwright contra este servidor.
+app.use(cors({ origin: /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/ }));
+app.use(express.json({ limit: "1mb" }));
 
 const CONCURRENCIA_MEDIDAS = Number(process.env.CONCURRENCIA_MEDIDAS || 3);
+const MAX_MEDIDAS_POR_LOTE = 500;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function guardarEstadoJob(jobId, estado) {
   await fs.mkdir(JOBS_DIR, { recursive: true });
@@ -82,6 +86,12 @@ app.post("/api/neumaticos/lote", async (req, res) => {
   if (!Array.isArray(medidas) || medidas.length === 0) {
     return res.status(400).json({
       error: "Debes enviar un arreglo de medidas",
+    });
+  }
+
+  if (medidas.length > MAX_MEDIDAS_POR_LOTE) {
+    return res.status(400).json({
+      error: `Máximo ${MAX_MEDIDAS_POR_LOTE} medidas por lote`,
     });
   }
 
@@ -146,6 +156,12 @@ app.post("/api/neumaticos/lote", async (req, res) => {
 });
 
 app.get("/api/neumaticos/lote/:jobId", async (req, res) => {
+  // Express decodifica %2F en params: sin esto "..%2F..%2Fpackage" lee
+  // cualquier .json fuera de JOBS_DIR.
+  if (!UUID_PATTERN.test(req.params.jobId)) {
+    return res.status(404).json({ error: "Job no encontrado" });
+  }
+
   try {
     const contenido = await fs.readFile(
       path.join(JOBS_DIR, `${req.params.jobId}.json`),
@@ -157,6 +173,6 @@ app.get("/api/neumaticos/lote/:jobId", async (req, res) => {
   }
 });
 
-app.listen(3001, () => {
+app.listen(3001, "127.0.0.1", () => {
   console.log("Servidor backend corriendo en http://localhost:3001");
 });
