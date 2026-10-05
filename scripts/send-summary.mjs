@@ -204,4 +204,5 @@ if (!respuesta.ok) {
   process.exit(1);
 }
 
-console.log(`Resumen enviado a ${destinatarios.join(", ")} (${filas.length} productos). id=${cuerpo.id}`);
+// El repo es publico y los logs de Actions tambien: no imprimir los correos.
+console.log(`Resumen enviado a ${destinatarios.length} destinatario(s) (${filas.length} productos). id=${cuerpo.id}`);
