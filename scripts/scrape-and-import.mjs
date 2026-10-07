@@ -3,8 +3,8 @@ import { chromium } from "playwright";
 import pLimit from "p-limit";
 import { createClient } from "@supabase/supabase-js";
 import { buscarEnTodosLosProveedores } from "../backend/scrapers/index.js";
-import { buscarAZedan } from "../backend/scrapers/azedan.scraper.js";
-import { marcaConocida, mejorOfertaParaProducto, mejorOfertaPorProveedorYMarca, puntajeModelo, detectarMarca } from "./ofertas.mjs";
+import { buscarAZedan, buscarAZedanPorTexto } from "../backend/scrapers/azedan.scraper.js";
+import { marcaDelProducto, mejorOfertaParaProducto, mejorOfertaPorProveedorYMarca, puntajeModelo, detectarMarca, tokensModelo, mismaMedida, textoIncluyeMarca } from "./ofertas.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -138,19 +138,34 @@ async function guardarPreciosAzedanPorMarca(product) {
   }
 }
 
+// El neumatico de azedan.cl que corresponde al producto: misma medida, nunca
+// de otra marca reconocida, y con al menos la mitad del modelo en el titulo.
+// Algunos titulos de azedan.cl no traen la marca ("H11 RXMOTION"), por eso la
+// marca no es obligatoria si el modelo coincide.
+function elegirAzedan(resultados, product, marca) {
+  const conModelo = tokensModelo(product.modelo).length > 0;
+  return resultados
+    .filter((o) => Number(o.precio) > 0 && mismaMedida(o, product.medida_normalizada))
+    .filter((o) => {
+      const otra = detectarMarca(o);
+      return !marca || !otra || otra === marca || textoIncluyeMarca(o, marca);
+    })
+    .map((o) => ({ ...o, puntaje: puntajeModelo(o, product.modelo), marcaOk: Boolean(marca && textoIncluyeMarca(o, marca)) }))
+    .filter((o) => (conModelo ? o.puntaje >= 0.5 : o.marcaOk))
+    .sort((a, b) => b.puntaje - a.puntaje || Number(b.marcaOk) - Number(a.marcaOk) || a.precio - b.precio)[0];
+}
+
 async function actualizarPrecioAzedan(product, marca) {
-  if (!marca) return guardarPreciosAzedanPorMarca(product);
+  if (!product.activo) return guardarPreciosAzedanPorMarca(product);
   const page = await browser.newPage();
   try {
-    const resultados = await buscarAZedan(page, { medida: product.medida, fabricante: marca ?? "" });
-    const candidatos = resultados.filter((o) => Number(o.precio) > 0 && (!marca || detectarMarca(o) === marca));
-    if (candidatos.length === 0) {
-      console.log(`  AZedan: sin ${marca ?? ""} ${product.medida} en azedan.cl`);
+    let mejor = elegirAzedan(await buscarAZedan(page, { medida: product.medida }), product, marca);
+    // Respaldo: productos que existen pero no salen en el filtro por medida.
+    if (!mejor) mejor = elegirAzedan(await buscarAZedanPorTexto(page, product.description_original), product, marca);
+    if (!mejor) {
+      console.log(`  AZedan: no esta en azedan.cl -> ${product.description_original}`);
       return;
     }
-    const mejor = candidatos
-      .map((o) => ({ ...o, puntaje: puntajeModelo(o, product.modelo) }))
-      .sort((a, b) => b.puntaje - a.puntaje || a.precio - b.precio)[0];
 
     const precioNormal = Number(mejor.precioNormal) || null;
     const { error: updateError } = await supabase
@@ -199,7 +214,7 @@ const tareas = Array.from(productsByMedida.entries()).map(([medidaNormalizada, p
     }
 
     for (const product of productosMedida) {
-      const marca = marcaConocida(product.marca);
+      const marca = marcaDelProducto(product.marca);
       // Con marca conocida: solo ofertas de esa marca (la que mas se parece al
       // modelo por proveedor). Sin marca: la mas barata por proveedor+marca.
       const ofertas = marca ? mejorOfertaParaProducto(resultados, marca, product.modelo) : mejorOfertaPorProveedorYMarca(resultados);

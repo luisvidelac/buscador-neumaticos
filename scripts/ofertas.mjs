@@ -6,7 +6,7 @@ export const MARCAS_CONOCIDAS = [
   "PIRELLI", "TOYO", "YOKOHAMA", "LINGLONG", "WESTLAKE", "ROADX", "APTANY",
   "TRIANGLE", "SAILUN", "GOODRIDE", "ROADWIND", "GENESYS", "DELINTE", "HIFLY",
   "ROADCRUZA", "APLUS", "KAPSEN", "FIREMAX", "AOTELI", "CITY STAR", "ADERENZA",
-  "ANNAITE", "COOPER", "SONIX", "TRACMAX", "MINNELL", "KUSTONE", "HILO", "MAZZINI", "WINDFORCE", "DOUBLECOIN", "MINERVA", "VINMAX", "ANTARES", "LANDSAIL", "COMFORSER", "ZEETEX", "MARSHAL", "LASSA", "UNIROYAL", "BARUM",
+  "ANNAITE", "COOPER", "SONIX", "TRACMAX", "MINNELL", "KUSTONE", "HILO", "MAZZINI", "WINDFORCE", "DOUBLECOIN", "MINERVA", "VINMAX", "ANTARES", "LANDSAIL", "COMFORSER", "ZEETEX", "MARSHAL", "LASSA", "UNIROYAL", "BARUM", "MIRAGE", "DELMAX", "DAYTON",
 ];
 
 export function normalizarTexto(txt) {
@@ -26,14 +26,26 @@ export function detectarMarca(oferta) {
   return MARCAS_CONOCIDAS.find((marca) => texto.includes(marca)) ?? null;
 }
 
-export function marcaConocida(marca) {
+// Marca del producto seguido (puede no estar en la lista: viene de la fila del
+// Excel). null si es un producto sin marca o la busqueda por medida.
+export function marcaDelProducto(marca) {
   const m = normalizarTexto(marca);
-  return MARCAS_CONOCIDAS.includes(m) ? m : null;
+  return m && m !== "SIN MARCA" && m !== "TODAS LAS MARCAS" ? m : null;
+}
+
+export function textoIncluyeMarca(oferta, marca) {
+  return textoOferta(oferta).includes(marca);
+}
+
+// Misma medida que el producto (los listados traen a veces otras medidas).
+export function mismaMedida(oferta, medidaNormalizada) {
+  const m = normalizarTexto(oferta.producto).match(/(\d{2,3})\s*\/\s*(\d{2,3})\s*Z?R?\s*(\d{2}(?:\.\d)?)/);
+  return !m || `${m[1]}/${m[2]}R${Number(m[3])}` === medidaNormalizada;
 }
 
 // Palabras del modelo con contenido (ej. "K435 KINERGY ECO2"), sin la medida ni
 // el indice de carga/velocidad, para medir cuanto del modelo aparece en la oferta.
-function tokensModelo(modelo) {
+export function tokensModelo(modelo) {
   return normalizarTexto(modelo)
     .split(/[^A-Z0-9]+/)
     .filter((t) => t.length >= 3 && !/^\d+$/.test(t));
@@ -77,9 +89,10 @@ export function mejorOfertaParaProducto(resultados, marca, modelo) {
     if (!oferta.proveedor) continue;
     const precio = Number(oferta.precio) || 0;
     if (precio <= 0) continue;
-    const marcaDetectada = detectarMarca(oferta);
-    if (marcaDetectada !== marca) continue;
-    const o = { ...oferta, precio, marcaDetectada, proveedorNombre: oferta.proveedor, proveedorKey: oferta.proveedor.trim().toLowerCase() };
+    // La marca pedida aparece en el titulo (sirve tambien para marcas fuera
+    // de la lista, como las que vienen de una fila del Excel).
+    if (!textoIncluyeMarca(oferta, marca)) continue;
+    const o = { ...oferta, precio, marcaDetectada: marca, proveedorNombre: oferta.proveedor, proveedorKey: oferta.proveedor.trim().toLowerCase() };
     const puntaje = puntajeModelo(o, modelo);
     const actual = porProveedor.get(o.proveedorKey);
     if (!actual || puntaje > actual.puntaje || (puntaje === actual.puntaje && o.precio < actual.precio)) {
