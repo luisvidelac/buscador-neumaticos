@@ -164,6 +164,9 @@ async function actualizarPrecioAzedan(product, marca) {
     if (!mejor) mejor = elegirAzedan(await buscarAZedanPorTexto(page, product.description_original), product, marca);
     if (!mejor) {
       console.log(`  AZedan: no esta en azedan.cl -> ${product.description_original}`);
+      // Se registra la consulta para que el comparador muestre "no encontrado"
+      // en vez de "buscando".
+      await supabase.from("products").update({ azedan_buscado_en: new Date().toISOString() }).eq("id", product.id);
       return;
     }
 
@@ -175,6 +178,7 @@ async function actualizarPrecioAzedan(product, marca) {
         precio_azedan_normal: precioNormal,
         url_azedan: mejor.url || null,
         precio_pendiente: false,
+        azedan_buscado_en: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", product.id);
