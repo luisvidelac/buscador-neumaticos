@@ -129,28 +129,39 @@ const html = `
     </tbody>
   </table>
   <p style="font-size:12px;color:#64748b">Diferencia = AZedan oferta vs. el menor precio vigente de la competencia (misma marca).
-    Detalle por proveedor en el Excel adjunto y en <a href="${APP_URL}">el comparador</a>.</p>
+    Todos los proveedores y precios en el Excel adjunto y en <a href="${APP_URL}">el comparador</a>.</p>
 </div>`;
 
-// Excel adjunto: resumen + detalle por proveedor.
+// Excel adjunto: el mismo formato que "Exportar analisis" del Comparador -- una
+// fila por producto, una columna por proveedor (su precio vigente), diferencia y
+// estado -- mas una hoja con el detalle de cada precio encontrado.
 const libro = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(
-  libro,
-  XLSX.utils.json_to_sheet(
-    filas.map((f) => ({
-      Medida: f.medida,
-      Producto: f.producto,
-      "AZedan normal": f.azedanNormal,
-      "AZedan oferta": f.azedanOferta,
-      "Mejor competencia": f.mejorPrecio,
-      "Proveedor mas barato": f.mejorProveedor,
-      "Proveedores con precio": f.proveedores,
-      "Diferencia %": f.diferencia == null ? null : Number(f.diferencia.toFixed(1)),
-      Estado: f.estado,
-    }))
-  ),
-  "Resumen"
-);
+const vigentesPorProducto = new Map();
+for (const o of offers) {
+  const m = vigentesPorProducto.get(o.producto_id) ?? new Map();
+  const actual = m.get(o.proveedor_id);
+  if (!actual || o.fecha_consulta > actual.fecha_consulta) m.set(o.proveedor_id, o);
+  vigentesPorProducto.set(o.producto_id, m);
+}
+const columnas = Array.from(new Set(offers.map((o) => o.proveedor_id)))
+  .map((id) => ({ id, nombre: providerById.get(id) ?? "" }))
+  .sort((x, y) => x.nombre.localeCompare(y.nombre));
+const encabezado = ["Medida", "Marca / Modelo", "Detalle", "AZedan normal", "AZedan oferta", ...columnas.map((c) => c.nombre), "Diferencia %", "Estado"];
+const filasExcel = products.map((p, i) => {
+  const vigentes = vigentesPorProducto.get(p.id) ?? new Map();
+  const f = filas[i];
+  return [
+    p.medida_normalizada,
+    `${p.marca} ${p.modelo}`,
+    p.indice_carga_velocidad ?? "",
+    f.azedanNormal ?? "",
+    f.azedanOferta ?? (p.azedan_buscado_en ? "No encontrado en azedan.cl" : ""),
+    ...columnas.map((c) => vigentes.get(c.id)?.precio_utilizado ?? ""),
+    f.diferencia == null ? "" : Number(f.diferencia.toFixed(1)),
+    f.estado,
+  ];
+});
+XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet([encabezado, ...filasExcel]), "Comparador");
 const detalle = [];
 for (const p of products) {
   const ultima = new Map();
@@ -176,7 +187,8 @@ for (const p of products) {
 XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(detalle), "Detalle por proveedor");
 const adjunto = XLSX.write(libro, { type: "buffer", bookType: "xlsx" });
 
-const dia = new Date().toISOString().slice(0, 10);
+// Fecha de Chile (a las 21:00 en Chile ya es el dia siguiente en UTC).
+const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(new Date());
 
 if (DRY_RUN) {
   const fs = await import("fs");
@@ -195,7 +207,7 @@ const respuesta = await fetch("https://api.resend.com/emails", {
     to: destinatarios,
     subject: `Resumen de precios AZedan · ${dia}`,
     html,
-    attachments: [{ filename: `resumen_precios_azedan_${dia}.xlsx`, content: Buffer.from(adjunto).toString("base64") }],
+    attachments: [{ filename: `comparador_azedan_${dia}.xlsx`, content: Buffer.from(adjunto).toString("base64") }],
   }),
 });
 const cuerpo = await respuesta.json().catch(() => ({}));
