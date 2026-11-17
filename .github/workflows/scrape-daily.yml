@@ -33,7 +33,8 @@ permissions:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    # Version fija: ubuntu-latest paso a 26.04 y Playwright no tiene Chromium para esa version.
+    runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
